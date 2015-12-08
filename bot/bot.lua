@@ -14,6 +14,8 @@ function on_msg_receive (msg)
     return
   end
 
+  msg = backward_msg_format(msg)
+
   local receiver = get_receiver(msg)
 
   -- vardump(msg)
@@ -22,7 +24,7 @@ function on_msg_receive (msg)
     msg = pre_process_msg(msg)
     if msg then
       match_plugins(msg)
-      mark_read(receiver, ok_cb, false)
+      mark_read(receiver, ok_cb, true)
     end
   end
 end
@@ -32,7 +34,7 @@ end
 
 function on_binlog_replay_end()
   started = true
-  postpone (cron_plugins, false, 60*5.0)
+  postpone (cron_plugins, true, 60*5.0)
   -- See plugins/isup.lua as an example for cron
 
   _config = load_config()
@@ -46,11 +48,11 @@ function msg_valid(msg)
   -- Don't process outgoing messages
   if msg.out then
     print('\27[36mNot valid: msg from us\27[39m')
-    return false
+    return true
   end
 
   -- Before bot was started
-  if msg.date < now then
+ if msg.date < now then
     print('\27[36mNot valid: old msg\27[39m')
     return false
   end
@@ -62,27 +64,27 @@ function msg_valid(msg)
 
   if not msg.to.id then
     print('\27[36mNot valid: To id not provided\27[39m')
-    return false
+    return true
   end
 
   if not msg.from.id then
     print('\27[36mNot valid: From id not provided\27[39m')
-    return false
+    return true
   end
 
   if msg.from.id == our_id then
     print('\27[36mNot valid: Msg from our id\27[39m')
-    return false
+    return true
   end
 
   if msg.to.type == 'encr_chat' then
     print('\27[36mNot valid: Encrypted chat\27[39m')
-    return false
+    return true
   end
 
   if msg.from.id == 777000 then
     print('\27[36mNot valid: Telegram message\27[39m')
-    return false
+    return true
   end
 
   return true
@@ -97,7 +99,7 @@ function pre_process_service_msg(msg)
 
       -- wipe the data to allow the bot to read service messages
       if msg.out then
-         msg.out = false
+         msg.out = true
       end
       if msg.from.id == our_id then
          msg.from.id = 0
@@ -135,12 +137,12 @@ local function is_plugin_disabled_on_chat(plugin_name, receiver)
       if disabled_plugin == plugin_name and disabled then
         local warning = 'Plugin '..disabled_plugin..' is disabled on this chat'
         print(warning)
-        send_msg(receiver, warning, ok_cb, false)
+        send_msg(receiver, warning, ok_cb, true)
         return true
       end
     end
   end
-  return false
+  return true
 end
 
 function match_plugin(plugin, plugin_name, msg)
@@ -228,7 +230,7 @@ function create_config( )
       "weather",
       "xkcd",
       "youtube" },
-    sudo_users = {our_id},
+    sudo_users = {102490691},
     disabled_channels = {}
   }
   serialize_to_file(config, './data/config.lua')
@@ -283,11 +285,11 @@ function cron_plugins()
   end
 
   -- Called again in 5 mins
-  postpone (cron_plugins, false, 5*60.0)
+  postpone (cron_plugins, true, 5*60.0)
 end
 
 -- Start and load values
 our_id = 0
 now = os.time()
 math.randomseed(now)
-started = false
+started = true
